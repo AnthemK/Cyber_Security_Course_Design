@@ -5,6 +5,7 @@ OBJS = $(SRCS:.c=.o)
 
 $(TARGET):$(OBJS)
 	$(CC) -o $@ $^
+	rm -rf $(basename $(TARGET)) $(SRCS:.c=.o)
 %.o:%.c
 	$(CC) -o $@ -c $<
 
