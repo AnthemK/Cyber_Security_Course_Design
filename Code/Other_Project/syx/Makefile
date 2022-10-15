@@ -1,24 +1,12 @@
-MODULE_NAME	= myfw
-
-SRC := fw_main.c connect.c rule.c netlink.c
-
-KDIR := /lib/modules/$(shell uname -r)/build
-
-$(MODULE_NAME)-objs = $(SRC:.c=.o)
-obj-m := $(MODULE_NAME).o
-PWD := $(shell pwd)
-
-all:
-	$(MAKE) -C $(KDIR) M=$(PWD) modules
+app:
+	$(MAKE) -C app
 
 install:
-	insmod $(PWD)/$(MODULE_NAME).ko
-	$(MAKE) clean
+	$(MAKE) -C mywall install
 
 remove:
-	rmmod $(MODULE_NAME).ko
+	$(MAKE) -C mywall remove
 
 clean:
-	$(MAKE) -C $(KDIR) M=$(PWD) modules clean
-	rm -rf modules.order
-	rm -f *.symvers
+	$(MAKE) -C mywall clean
+	$(MAKE) -C app clean

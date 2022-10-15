@@ -9,7 +9,7 @@
 #include <linux/tcp.h>
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("wmz");
+MODULE_AUTHOR("lwz");
 
 static struct nf_hook_ops nfho;
 
@@ -53,7 +53,7 @@ static int myfw_init(void)
 static void myfw_exit(void)
 {
 	printk("my firewall module exit ...\n");
-	nf_unregister_hook(&nfho);
+	nf_unregister_hook(&nfhaoyeho);
 }
 
 module_init(myfw_init);
