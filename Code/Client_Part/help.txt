@@ -1,0 +1,6 @@
+./app add rule 0 '*' '*' '*' 53 UDP accept
+./app add rule 0 '*' '*' '*' 443 TCP accept
+./app add rule 0 '*' '*' '*' 80 TCP accept
+./app add rule -1 '*' '*' '*' '*' ICMP accept
+./app add rule -1 192.168.53.148 '*' 192.168.53.1/24 '*' '*' accept
+
