@@ -1,5 +1,6 @@
 app:
 	$(MAKE) -C app
+	$(MAKE) -C mywall
 
 install:
 	$(MAKE) -C mywall install

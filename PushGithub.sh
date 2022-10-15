@@ -1,8 +1,8 @@
 #!/bin/bash
 Now_time=$(date "+%Y-%m-%d %H:%M:%S")
-echo $1
+echo $Now_time
 # hou mian yao ti huan cheng  make
-make -C Code/Other_Project/syx #clean syx 
+make -C Code/Other_Project/syx clean #clean syx 
 git add *
 git commit -m "$Now_time:"" $1"
 git push origin main
