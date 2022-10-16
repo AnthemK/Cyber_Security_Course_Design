@@ -1,7 +1,7 @@
 #ifndef KSTRUCT
 #define KSTRUCT
 
-#include <sys/types.h>
+#include <linux/types.h> //WARNING : maybe sys/types.h
 
 //connect
 typedef struct
@@ -10,6 +10,21 @@ typedef struct
 	unsigned short port[2];
 	u_int8_t protocol; 
 }connect_key; // 连接标识符，用于标明一个连接，可比较
+
+//nat
+typedef struct
+{	
+	unsigned int ip;
+	unsigned short port;
+	u_int8_t protocol; 
+}nat_key; // nat标识符，用于标明一个nat，可比较
+
+typedef struct
+{	
+	unsigned int ip;
+	unsigned short port; 
+	u_int8_t isconst;	
+}nat_data;
 
 //view of the first package
 #define SHOST 0
@@ -66,5 +81,10 @@ struct response_header
 #define EXC_ERROR 7
 #define TABLE_ERROR 8
 #define OPT_ERROR 9
-
+#define NAT_OUT 10
+#define NAT_FULL 11
+#define NAT_ERROR 12
+#define NAT_EXIST 13
+#define CONNECT_ERROR 14
+#define CONNECT_EXIST 15
 #endif

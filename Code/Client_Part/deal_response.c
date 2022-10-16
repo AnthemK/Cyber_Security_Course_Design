@@ -90,22 +90,22 @@ char * show_action(unsigned short act, char * buff)
 	switch(act)
 	{
 		case RULE_AC:
-			strcpy(buff, "accept");
+			strcpy(buff, "allow");
 			break;
 		case RULE_DENY:
-			strcpy(buff, "deny");
+			strcpy(buff, "drop");
 			break;
 		default:
-			strcpy(buff, "what?");
+			strcpy(buff, "undefined action");
 	}
 	return buff;
 }
 
-static void show_end(const char * data, int len)
+static void show_message(const char * data, int len)
 {
 	if(len)
 	{
-		printf(":");
+		printf("With message:\n");
 		for(int i=0; i<len; i++)
 			putchar(data[i]);
 	}
@@ -130,15 +130,15 @@ static void show_info(int info, void * data, int data_len)
 			printf("opt illegal\n");
 			break;
 		default :
-			printf("something wrong\n");
+			printf("information code goes wrong\n");
 	}
-	show_end(data, data_len);
+	show_message(data, data_len);
 }
 
 static void show_rule(int i, rule_info * s)
 {
 	char buff[100];
-	printf(" %2d |", i);
+	printf("| %2d |", i);
 	show_ip(s->saddr, s->smask, buff);
 	printf(" %18s |", buff);
 	show_ip(s->daddr, s->dmask, buff);
@@ -156,11 +156,12 @@ static void show_rule(int i, rule_info * s)
 }
 static void show_rules(rule_info * s, int len)
 {
-	if(len % sizeof(rule_info))
+	if(len % sizeof(rule_info) || !len)
 	{
-		printf("packet len %d error", len);
+		printf("packet length %d error", len);
+		return;
 	}
-	
+	printf("| %2s | %18s | %18s | %11s | %11s | %5s | %6s |\n","id","src_ip_addr","dst_ip_addr","src_port","dst_port","prot","act");
 	int size=len/sizeof(rule_info);
 	for(int i=0; i<size; i++)
 	{
@@ -172,7 +173,7 @@ static void show_connect(connect_key * s)
 {
 	char buff[100];
 	show_ip_port(s->ip[0], s->port[0], buff);
-	printf(" %22s |", buff);
+	printf("| %22s |", buff);
 	
 	show_ip_port(s->ip[1], s->port[1], buff);
 	printf(" %22s |", buff);
@@ -185,40 +186,43 @@ static void show_connect(connect_key * s)
 
 static void show_connects(connect_key * s, int len)
 {
-	if(len % sizeof(connect_key))
+	if(len % sizeof(connect_key) || !len)
 	{
-		printf("packet len %d error", len);
+		printf("packet length %d error", len);
+		return;
 	}
-	
+	printf("| %22s | %22s | %5s |\n","src ip and port","dst ip and port","protocol");
 	int size=len/sizeof(connect_key);
 	for(int i=0; i<size; i++)
 	{
 		show_connect(s+i);
 	}
 }
-void deal_response(struct response_header * msg)
+void deal_response(struct response_header * msg)  //deal one response packet
 {
-	void * data=(void *)msg + sizeof(struct response_header);
+	void * data=(void *)msg + sizeof(struct response_header);  //get message,right after response_header
 	int data_len = msg->len;
-	if(msg->type == TYPE_MSG)
+	switch(msg->type)  //switch by type
 	{
-		show_info(msg->info, data, data_len);
-		return;
+		case TYPE_MSG:
+			show_info(msg->info, data, data_len);
+			return;		
+		case TYPE_DATA:
+			switch(msg->info) //when type is data , switch info
+			{
+				case RULE_TABLE:
+					show_rules(data, data_len);
+					break;
+				case CONNECT_TABLE:
+					show_connects(data, data_len);
+					break;
+				default:
+					break;
+			}			
+			return;
+		default :
+			printf("Msg type error!!\n");
+			return;
 	}
-	if(msg->type != TYPE_DATA)
-	{
-		printf("msg type error.\n");
-		return;
-	}
-	switch(msg->info)
-	{
-		case RULE_TABLE:
-			show_rules(data, data_len);
-			break;
-		case CONNECT_TABLE:
-			show_connects(data, data_len);
-			break;
-		default:
-			break;
-	}
+	return;
 }

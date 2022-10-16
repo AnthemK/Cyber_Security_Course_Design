@@ -1,0 +1,1 @@
+cmd_/home/user/Desktop/Work/Cyber-Security-Course-Design/Code/Kernel_Part/Module.symvers := sed 's/\.ko$$/\.o/' /home/user/Desktop/Work/Cyber-Security-Course-Design/Code/Kernel_Part/modules.order | scripts/mod/modpost -m -a  -o /home/user/Desktop/Work/Cyber-Security-Course-Design/Code/Kernel_Part/Module.symvers -e -i Module.symvers   -T -
