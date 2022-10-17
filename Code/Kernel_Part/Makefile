@@ -24,4 +24,4 @@ clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules clean
 	rm -rf modules.order
 	rm -f *.symvers
-	rm -rf .tmp_versions
+	rm -f $(shell ls ../Common_Part)
