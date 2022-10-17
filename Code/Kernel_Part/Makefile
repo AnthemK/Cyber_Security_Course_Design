@@ -12,14 +12,13 @@ all:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
 install:
-	insmod $(PWD)/$(MODULE_NAME).ko
+	-insmod $(PWD)/$(MODULE_NAME).ko
 	$(MAKE) clean
 
-remove:
+uninstall:
 	-rmmod $(MODULE_NAME).ko
 
 clean:
-	$(MAKE) remove
 	$(MAKE) -C $(KDIR) M=$(PWD) modules clean
 	rm -rf modules.order
 	rm -f *.symvers

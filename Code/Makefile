@@ -2,7 +2,7 @@ help:
 	@echo "getclient:  get the client"
 	@echo "gettools: get test tools"
 	@echo "install:  install the module into linux kernel"
-	@echo "remove:  remove the module from linux kernel"
+	@echo "uninstall:  uninstall the module from linux kernel"
 	@echo "clean:  clean all the items except code"
 
 getclient: 
@@ -16,9 +16,8 @@ install:
 	$(MAKE) -C Kernel_Part
 	$(MAKE) -C Kernel_Part install
 
-remove:
-	$(MAKE) -C Kernel_Part
-	$(MAKE) -C Kernel_Part remove
+uninstall:
+	$(MAKE) -C Kernel_Part uninstall
 
 clean:
 	$(MAKE) -s -C Client_Part clean
