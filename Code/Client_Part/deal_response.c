@@ -118,16 +118,16 @@ static void show_info(int info, void * data, int data_len)
 	switch(info)
 	{
 		case NO_ERROR:
-			printf("success\n");
+			printf("Infor from kernel : success\n");
 			break;
 		case NUM_ERROR:
-			printf("wrong input id\n");
+			printf("Infor from kernel : wrong input id\n");
 			break;
 		case TABLE_ERROR:
-			printf("table illegal\n");
+			printf("Infor from kernel : table illegal\n");
 			break;
 		case OPT_ERROR:
-			printf("opt illegal\n");
+			printf("Infor from kernel : opt illegal\n");
 			break;
 		default :
 			printf("information code goes wrong\n");
@@ -141,10 +141,10 @@ static void show_rule(int i, rule_info * s)
 	printf("| %2d |", i);
 	show_ip(s->saddr, s->smask, buff);
 	printf(" %18s |", buff);
-	show_ip(s->daddr, s->dmask, buff);
-	printf(" %18s |", buff);
 	show_port(s->sport, buff);
 	printf(" %11s |", buff);
+	show_ip(s->daddr, s->dmask, buff);
+	printf(" %18s |", buff);
 	show_port(s->dport, buff);
 	printf(" %11s |", buff);
 	show_proto(s->protocol, buff);
@@ -158,10 +158,10 @@ static void show_rules(rule_info * s, int len)
 {
 	if(len % sizeof(rule_info) || !len)
 	{
-		printf("packet length %d error", len);
+		printf("packet length %d error\n", len);
 		return;
 	}
-	printf("| %2s | %18s | %18s | %11s | %11s | %5s | %6s |\n","id","src_ip_addr","dst_ip_addr","src_port","dst_port","prot","act");
+	printf("----------------------------------------- Rule Table -----------------------------------------\n| %2s | %18s | %11s | %18s | %11s | %5s | %6s |\n","id","src_ip_addr","src_port","dst_ip_addr","dst_port","prot","act");
 	int size=len/sizeof(rule_info);
 	for(int i=0; i<size; i++)
 	{
@@ -169,35 +169,87 @@ static void show_rules(rule_info * s, int len)
 	}
 }
 
-static void show_connect(connect_key * s)
+static void show_connect(connect_nat * s)
 {
 	char buff[100];
-	show_ip_port(s->ip[0], s->port[0], buff);
+	show_ip_port(s->con.ip[0], s->con.port[0], buff);
 	printf("| %22s |", buff);
 	
-	show_ip_port(s->ip[1], s->port[1], buff);
+	show_ip_port(s->con.ip[1], s->con.port[1], buff);
 	printf(" %22s |", buff);
 	
-	show_proto(s->protocol, buff);
+	show_proto(s->con.protocol, buff);
 	printf(" %5s |", buff);
+
+	switch(s->if_nat)
+	{
+		case -1:
+		case 0:
+			strcpy(buff, "No");
+			break;
+		case 1:
+			strcpy(buff, "Yes, translate src");
+			break;
+		case 2:
+			strcpy(buff, "Yes, translate dst");
+			break;
+	}
+	printf(" %22s |", buff);
+
+	show_ip_port(s->nat.ip, s->nat.port, buff);
+	printf(" %22s |", buff);
+
 	printf("\n");
 	return;
 }
 
-static void show_connects(connect_key * s, int len)
+static void show_connects(connect_nat * s, int len)
 {
-	if(len % sizeof(connect_key) || !len)
+	if(len % sizeof(connect_nat) || !len)
 	{
-		printf("packet length %d error", len);
+		printf("packet length %d error\n", len);
 		return;
 	}
-	printf("| %22s | %22s | %5s |\n","src ip and port","dst ip and port","protocol");
-	int size=len/sizeof(connect_key);
+	printf("----------------------------------------- Connect Table -----------------------------------------\n| %22s | %22s | %5s | %22s | %22s |\n","src ip and port","dst ip and port","prot", "NAT status", "NAT ip and port");
+	int size=len/sizeof(connect_nat);
 	for(int i=0; i<size; i++)
 	{
 		show_connect(s+i);
 	}
 }
+
+static void show_nat_rule(int i, rule_info * s)
+{
+	char buff[100];
+	printf("| %2d |", i);
+	show_ip(s->saddr, s->smask, buff);
+	printf(" %18s |", buff);
+	show_port(s->sport, buff);
+	printf(" %11s |", buff);
+	show_ip(s->daddr, s->dmask, buff);
+	printf(" %18s |", buff);
+	show_port(s->dport, buff);
+	printf(" %14s |", buff);
+	show_proto(s->protocol, buff);
+	printf(" %5s |", buff);
+	printf("\n");
+	return;
+}
+static void show_nat_rules(rule_info * s, int len)
+{
+	if(len % sizeof(rule_info) || !len)
+	{
+		printf("packet length %d error\n", len);
+		return;
+	}
+	printf("----------------------------------------- NAT Rule Table -----------------------------------------\n| %2s | %18s | %11s | %18s | %14s | %5s |\n","id","inside_ip","inside_port","interface_ip","interface_port","prot");
+	int size=len/sizeof(rule_info);
+	for(int i=0; i<size; i++)
+	{
+		show_nat_rule(i+1, s+i);
+	}
+}
+
 void deal_response(struct response_header * msg)  //deal one response packet
 {
 	void * data=(void *)msg + sizeof(struct response_header);  //get message,right after response_header
@@ -216,6 +268,8 @@ void deal_response(struct response_header * msg)  //deal one response packet
 				case CONNECT_TABLE:
 					show_connects(data, data_len);
 					break;
+				case NAT_RULE_TABLE:
+					show_nat_rules(data,data_len);
 				default:
 					break;
 			}			
@@ -226,3 +280,58 @@ void deal_response(struct response_header * msg)  //deal one response packet
 	}
 	return;
 }
+
+
+
+static void fshow_rule(int i, rule_info * s,FILE *fp)
+{
+	char buff[100];
+	fprintf(fp,"%d ",i);
+	show_ip(s->saddr, s->smask, buff);
+    fprintf(fp,"%s ", buff);
+	show_port(s->sport, buff);
+	fprintf(fp,"%s ", buff);
+	show_ip(s->daddr, s->dmask, buff);
+	fprintf(fp,"%s ", buff);
+	show_port(s->dport, buff);
+	fprintf(fp,"%s ", buff);
+	show_proto(s->protocol, buff);
+	fprintf(fp,"%s ", buff);
+	show_action(s->action, buff);
+	fprintf(fp,"%s ", buff);
+	fprintf(fp,"\n");
+	return;
+}
+
+static void fshow_rules(rule_info * s, int len,FILE *fp)
+{
+	if(len % sizeof(rule_info))
+	{
+		printf("packet len %d error\n", len);
+	}
+
+	int size=len/sizeof(rule_info);
+	fprintf(fp,"%d\n", size);
+	for(int i=0; i<size; i++)
+	{
+		fshow_rule(i+1, s+i,fp);
+	}
+}
+
+
+void file_deal_response(struct response_header * msg,FILE *fp){
+    void * data=(void *)msg + sizeof(struct response_header);
+	int data_len = msg->len;
+	if(msg->type == TYPE_MSG)
+	{
+		show_info(msg->info, data, data_len);
+		return;
+	}
+	if(msg->type != TYPE_DATA)
+	{
+		printf("msg type error.\n");
+		return;
+	}
+	fshow_rules(data, data_len,fp);
+}
+

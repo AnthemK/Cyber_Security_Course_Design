@@ -9,6 +9,7 @@
 
 LIST_HEAD(rules);
 
+static DEFINE_RWLOCK(rule_lock);	//SYX: lock
 
 //
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,2,0)
@@ -47,16 +48,17 @@ static struct iprule * iprule_id(int id)
 	int loc=1; 
 	
 	//SYX: read lock
+	read_lock(&rule_lock);
 	list_for_each_entry(pNode, &rules, node)	//pos:1~len
 	{
 		if( loc == id )
 		{
-			
+			read_unlock(&rule_lock);
 			return pNode;
 		}
 		loc++;
 	}
-	
+	read_unlock(&rule_lock);
 	return NULL;
 }
 
@@ -67,16 +69,17 @@ static struct iprule * iprule_id_reverse(int id)
 	int loc=-1; 
 	
 	//SYX: read lock
+	read_lock(&rule_lock);
 	list_for_each_entry_reverse(pNode, &rules, node)	//pos:-1~-len
 	{
 		if( loc == id )
 		{
-			
+			read_unlock(&rule_lock);
 			return pNode;
 		}
 		loc--;
 	}
-	
+	read_unlock(&rule_lock);
 	return NULL;
 }
 
@@ -91,21 +94,22 @@ static struct iprule * iprule_find_id(int id)
 }
 
 //根据key匹配规则
-struct iprule * iprule_match(connect_key * key)
+int iprule_match(connect_key * key)
 {
 	struct iprule * pNode;
 	
 	//SYX: read lock
+	read_lock(&rule_lock);
 	list_for_each_entry(pNode, &rules, node)	//pos:1~len
 	{
 		if(data_match(key, &pNode->data)) 
 		{
-				
-				return pNode;
+				read_unlock(&rule_lock);
+				return pNode->data.action;
 		}
 	}
-	
-	return NULL;
+	read_unlock(&rule_lock);
+	return RULE_ERROR;
 }
 
 //在规则id后新增一条规则,0~len or -len~-1
@@ -139,7 +143,9 @@ int iprule_add(rule_info * new_rule, int id)
 	memcpy(&nNode->data, new_rule, sizeof(rule_info));
 	
 	//SYX:write lock
+	write_lock(&rule_lock);
 	list_add(&nNode->node, aim);		//insert after aim
+	write_unlock(&rule_lock);
 	
 	if(new_rule->action != RULE_AC) 
         connect_del_rule(new_rule); // 消除新增规则的影响
@@ -162,7 +168,9 @@ int iprule_swap(int id1, int id2)
 		return NO_ERROR;
 		
 	//SYX : write lock
+	write_lock(&rule_lock);
 	list_swap(&pNode1->node, &pNode2->node);
+	write_unlock(&rule_lock);
 	
 	return NO_ERROR;
 }
@@ -194,7 +202,9 @@ int iprule_put(int id1, int id2)
 		return NUM_ERROR;
 	}
 	//SYX：write lock
+	write_lock(&rule_lock);
 	list_move(&pNode1->node, aim);
+	write_unlock(&rule_lock);
 	
 	return NO_ERROR;
 }
@@ -209,7 +219,9 @@ int iprule_set(rule_info * new_rule, int id)
 		return NUM_ERROR;
 	
 	//SYX:write lock
+	write_lock(&rule_lock);
 	memcpy(&pNode->data, new_rule, sizeof(rule_info));
+	write_unlock(&rule_lock);
 	
 	if(new_rule->action != RULE_AC) 
         connect_del_rule(new_rule); // 消除新增规则的影响
@@ -225,6 +237,7 @@ rule_info* iprule_all(unsigned int *len)
 	unsigned int count=0;
 
 	//SYX: read lock
+	read_lock(&rule_lock);
 	list_for_each_entry(pNode, &rules, node)	//pos:1~len
 	{
 		count++;
@@ -235,6 +248,7 @@ rule_info* iprule_all(unsigned int *len)
 	if(mem == NULL) 
 	{
 		printk(KERN_ERR "%s:%i iprule alloc error\n", __FILE__, __LINE__);
+		read_unlock(&rule_lock);
 		return NULL;
 	}
 	
@@ -244,8 +258,8 @@ rule_info* iprule_all(unsigned int *len)
 		mem[count]=pNode->data;
 		count++;
 	}
-	
-    return mem;
+	read_unlock(&rule_lock);
+	return mem;
 }
 
 //删除id
@@ -258,7 +272,9 @@ int iprule_del(int id)
 		return NUM_ERROR;
 	
 	//SYX:write lock
+	write_lock(&rule_lock);
 	list_del(&pNode->node);
+	write_unlock(&rule_lock);
 	
 	kfree(pNode);
 	return NO_ERROR;

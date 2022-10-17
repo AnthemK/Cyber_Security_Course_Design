@@ -12,10 +12,7 @@ void deal_response(struct response_header * msg);
 void wrong_command() 
 {
 	printf("wrong command.\n");
-	printf("uapp <command> <sub-command> [option]\n");
-	printf("commands: rule <add | del | ls | default> [del rule's name]\n");
-	printf("          nat  <add | del | ls> [del number]\n");
-	printf("          ls   <rule | nat | log | connect>\n");
+	printf("((load | add | del | set | swap | put | print) rule [option] | ( add | del | set | swap | put | print) natrule [option] | <print> connect )\n");
 	exit(0);
 }
 int check_unum(const char * s, unsigned int *re)
@@ -184,12 +181,12 @@ int check_id(const char *s, int * num)
 
 int check_action(const char * s, unsigned short * num)
 {
-	if(!strcmp(s, "accept"))
+	if(!strcmp(s, "allow"))
 	{
 		*num=RULE_AC;
 		return NO_ERROR;
 	}
-	if(!strcmp(s, "deny"))
+	if(!strcmp(s, "drop"))
 	{
 		*num=RULE_DENY;
 		return NO_ERROR;
@@ -218,9 +215,9 @@ rule_info iprule_init(unsigned int saddr,unsigned int smask,unsigned int daddr,u
 
 struct request_header * make_header(unsigned short opt, unsigned short table, int id, void * msg, int len)
 {
-	if(opt != LIST_ITEM && table != RULE_TABLE)
+	if((opt != LIST_ITEM) && (table != RULE_TABLE) && (table != NAT_RULE_TABLE))
 	{
-		printf("can only modify rule table");
+		printf("can only modify rule table or nat rule table\n");
 		return NULL;
 	}
 	void * cur=malloc(sizeof(struct request_header) + len);
@@ -247,80 +244,184 @@ int main(int argc, char * argv[])
 	}
 	struct request_header *msg;
 	int msglen=0;
-	if(strcmp(argv[1], "list")!=0)
+	if(strcmp(argv[1], "print"))
 	{
-		if(strcmp(argv[2], "rule"))
+		if(strcmp(argv[2], "rule") == 0)
+		{
+
+			if(strcmp(argv[1], "load")==0)
+		    {
+				char default_file[20]= "initialization.txt";
+				if(argc>=4) strcpy(default_file, argv[3]);
+				FILE *fp=fopen(default_file,"r");
+				int x, id=0;
+				fscanf(fp,"%d ",&x);
+				while(x--){
+		            unsigned int sip,smask,dip,dmask, sport, dport;
+		            unsigned short action;
+		            u_int8_t proto;
+		            char mesg[10][100];
+		            for(int i=1;i<=7;i++){
+		                fscanf(fp,"%s ",mesg[i]);
+		            }
+		            //check_id(mesg[1], &id);
+		            check_ip(mesg[2], &sip, &smask);
+		            check_port(mesg[3], &sport);
+		            check_ip(mesg[4], &dip, &dmask);
+		            check_port(mesg[5], &dport);
+		            check_proto(mesg[6], &proto);
+		            check_action(mesg[7], &action);
+		            //printf("%x, %x, %x, %x, %x, %x, %d, %d, %d\n", sip, smask, dip, dmask, sport, dport, proto, id, action);
+		            rule_info rule=iprule_init(sip, smask, dip, dmask, sport, dport, proto, action);
+		            msg = make_header(ADD_ITEM, RULE_TABLE, id, (void *)&rule, sizeof(rule_info));
+		            msglen=sizeof(struct request_header) + sizeof(rule_info);
+		            struct response_header * rsp = message_exc(msg, msglen);
+		            deal_response(rsp);
+		            id=-1;
+		            //printf("\n");
+				}
+				fclose(fp);
+				//ERROR: sometimes core dump???
+		        return  0;
+		    }
+			else if(strcmp(argv[1], "add")==0)
+			{
+				unsigned int sip,smask,dip,dmask, sport, dport;
+				int id;
+				unsigned short action;
+				u_int8_t proto;
+				check_id(argv[3], &id);
+				check_ip(argv[4], &sip, &smask);
+				check_port(argv[5], &sport);
+				check_ip(argv[6], &dip, &dmask);
+				check_port(argv[7], &dport);
+				check_proto(argv[8], &proto);
+				check_action(argv[9], &action);
+				
+				rule_info rule=iprule_init(sip, smask, dip, dmask, sport, dport, proto, action);
+				msg = make_header(ADD_ITEM, RULE_TABLE, id, (void *)&rule, sizeof(rule_info));
+				msglen=sizeof(struct request_header) + sizeof(rule_info);
+			}
+			else if(strcmp(argv[1], "del")==0)
+			{
+				int id;
+				check_id(argv[3], &id);
+				printf("%d\n", id);
+				msg = make_header(DEL_ITEM, RULE_TABLE, id, NULL, 0);
+				msglen=sizeof(struct request_header);
+			}
+			else if(strcmp(argv[1], "set")==0)
+			{
+				unsigned int sip,smask,dip,dmask, sport, dport;
+				int id;
+				unsigned short action;
+				u_int8_t proto;
+				check_id(argv[3], &id);
+				check_ip(argv[4], &sip, &smask);
+				check_port(argv[5], &sport);
+				check_ip(argv[6], &dip, &dmask);
+				check_port(argv[7], &dport);
+				check_proto(argv[8], &proto);
+				check_action(argv[9], &action);
+				
+				
+				rule_info rule=iprule_init(sip, smask, dip, dmask, sport, dport, proto, action);
+				msg = make_header(SET_ITEM, RULE_TABLE, id, (void *)&rule, sizeof(rule_info));
+				msglen=sizeof(struct request_header) + sizeof(rule_info);
+			}
+			else if(strcmp(argv[1], "swap")==0)
+			{
+				int id1, id2;
+				check_id(argv[3], &id1);
+				check_id(argv[4], &id2);
+				printf("%d, %d\n", id1, id2);
+				msg = make_header(SWAP_ITEM, RULE_TABLE, id1, &id2, sizeof(int));
+				msglen=sizeof(struct request_header) + sizeof(int);
+			}
+			else if(strcmp(argv[1], "put")==0)
+			{
+				int id1, id2;
+				check_id(argv[3], &id1);
+				check_id(argv[4], &id2);
+				printf("%d, %d\n", id1, id2);
+				msg = make_header(PUT_ITEM, RULE_TABLE, id1, &id2, sizeof(int));		//id2放在id1之后
+				msglen=sizeof(struct request_header) + sizeof(int);
+			}
+			else
+			{
+				printf("wrong arg %s\n", argv[1]);
+				wrong_command();
+			}
+		} 
+		else if (strcmp(argv[2], "natrule") == 0)
+		{
+			if(strcmp(argv[1], "add")==0)
+			{
+				unsigned int sip, smask, dip, dmask, sport, dport;
+				int id;
+				u_int8_t proto;
+				check_id(argv[3], &id);
+				check_ip(argv[4], &sip, &smask);
+				check_port(argv[5], &sport);
+				check_ip(argv[6], &dip, &dmask);
+				check_port(argv[7], &dport);
+				check_proto(argv[8], &proto);
+				
+				rule_info rule=iprule_init(sip, smask, dip, ~0, sport, dport, proto, 0);
+				msg = make_header(ADD_ITEM, NAT_RULE_TABLE, id, (void *)&rule, sizeof(rule_info));
+				msglen=sizeof(struct request_header) + sizeof(rule_info);
+			}
+			else if(strcmp(argv[1], "del")==0)
+			{
+				int id;
+				check_id(argv[3], &id);
+				printf("%d\n", id);
+				msg = make_header(DEL_ITEM, NAT_RULE_TABLE, id, NULL, 0);
+				msglen=sizeof(struct request_header);
+			}
+			else if(strcmp(argv[1], "set")==0)
+			{
+				unsigned int sip, smask, dip, dmask, sport, dport;
+				int id;
+				u_int8_t proto;
+				check_id(argv[3], &id);
+				check_ip(argv[4], &sip, &smask);
+				check_port(argv[5], &sport);
+				check_ip(argv[6], &dip, &dmask);
+				check_port(argv[7], &dport);
+				check_proto(argv[8], &proto);
+				
+				rule_info rule=iprule_init(sip, smask, dip, ~0, sport, dport, proto, 0);
+				msg = make_header(SET_ITEM, NAT_RULE_TABLE, id, (void *)&rule, sizeof(rule_info));
+				msglen=sizeof(struct request_header) + sizeof(rule_info);
+			}
+			else if(strcmp(argv[1], "swap")==0)
+			{
+				int id1, id2;
+				check_id(argv[3], &id1);
+				check_id(argv[4], &id2);
+				//printf("%d, %d\n", id1, id2);
+				msg = make_header(SWAP_ITEM, NAT_RULE_TABLE, id1, &id2, sizeof(int));
+				msglen=sizeof(struct request_header) + sizeof(int);
+			}
+			else if(strcmp(argv[1], "put")==0)
+			{
+				int id1, id2;
+				check_id(argv[3], &id1);
+				check_id(argv[4], &id2);
+				//printf("%d, %d\n", id1, id2);
+				msg = make_header(PUT_ITEM, NAT_RULE_TABLE, id1, &id2, sizeof(int));		//id2放在id1之后
+				msglen=sizeof(struct request_header) + sizeof(int);
+			}
+			else
+			{
+				printf("wrong arg %s\n", argv[1]);
+				wrong_command();
+			}
+		}
+		else 
 		{
 			printf("wrong arg %s\n", argv[2]);
-			wrong_command();
-		}
-		if(strcmp(argv[1], "add")==0)
-		{
-			unsigned int sip,smask,dip,dmask, sport, dport;
-			int id;
-			unsigned short action;
-			u_int8_t proto;
-			check_id(argv[3], &id);
-			check_ip(argv[4], &sip, &smask);
-			check_port(argv[5], &sport);
-			check_ip(argv[6], &dip, &dmask);
-			check_port(argv[7], &dport);
-			check_proto(argv[8], &proto);
-			check_action(argv[9], &action);
-			
-			printf("%x, %x, %x, %x, %x, %x, %d, %d, %d\n", sip, smask, dip, dmask, sport, dport, proto, id, action);
-			rule_info rule=iprule_init(sip, smask, dip, dmask, sport, dport, proto, action);
-			msg = make_header(ADD_ITEM, RULE_TABLE, id, (void *)&rule, sizeof(rule_info));
-			msglen=sizeof(struct request_header) + sizeof(rule_info);
-		}
-		else if(strcmp(argv[1], "del")==0)
-		{
-			int id;
-			check_id(argv[3], &id);
-			printf("%d\n", id);
-			msg = make_header(DEL_ITEM, RULE_TABLE, id, NULL, 0);
-			msglen=sizeof(struct request_header);
-		}
-		else if(strcmp(argv[1], "set")==0)
-		{
-			unsigned int sip,smask,dip,dmask, sport, dport;
-			int id;
-			unsigned short action;
-			u_int8_t proto;
-			check_id(argv[3], &id);
-			check_ip(argv[4], &sip, &smask);
-			check_port(argv[5], &sport);
-			check_ip(argv[6], &dip, &dmask);
-			check_port(argv[7], &dport);
-			check_proto(argv[8], &proto);
-			check_action(argv[9], &action);
-			
-			printf("%x, %x, %x, %x, %x, %x, %d, %d, %d\n", sip, smask, dip, dmask, sport, dport, proto, id, action);
-			rule_info rule=iprule_init(sip, smask, dip, dmask, sport, dport, proto, action);
-			msg = make_header(SET_ITEM, RULE_TABLE, id, (void *)&rule, sizeof(rule_info));
-			msglen=sizeof(struct request_header) + sizeof(rule_info);
-		}
-		else if(strcmp(argv[1], "swap")==0)
-		{
-			int id1, id2;
-			check_id(argv[3], &id1);
-			check_id(argv[4], &id2);
-			printf("%d, %d\n", id1, id2);
-			msg = make_header(SWAP_ITEM, RULE_TABLE, id1, &id2, sizeof(int));
-			msglen=sizeof(struct request_header) + sizeof(int);
-		}
-		else if(strcmp(argv[1], "put")==0)
-		{
-			int id1, id2;
-			check_id(argv[3], &id1);
-			check_id(argv[4], &id2);
-			printf("%d, %d\n", id1, id2);
-			msg = make_header(PUT_ITEM, RULE_TABLE, id1, &id2, sizeof(int));		//id2放在id1之后
-			msglen=sizeof(struct request_header) + sizeof(int);
-		}
-		else
-		{
-			printf("wrong arg %s\n", argv[1]);
 			wrong_command();
 		}
 	}
@@ -330,10 +431,22 @@ int main(int argc, char * argv[])
 		{
 			msg = make_header(LIST_ITEM, RULE_TABLE, 0, NULL, 0);
 			msglen=sizeof(struct request_header);
+			if(argc>3){
+                struct response_header * rsp = message_exc(msg, msglen);
+                FILE* fp=fopen(argv[3],"w");
+                file_deal_response(rsp,fp);
+                fclose(fp);
+                return 0;
+		    }
 		}
 		else if(strcmp(argv[2], "connect") == 0)
 		{
 			msg = make_header(LIST_ITEM, CONNECT_TABLE, 0, NULL, 0);
+			msglen=sizeof(struct request_header);
+		}
+		else if(strcmp(argv[2], "natrule") == 0)
+		{
+			msg = make_header(LIST_ITEM, NAT_RULE_TABLE, 0, NULL, 0);
 			msglen=sizeof(struct request_header);
 		}
 		else
@@ -341,6 +454,11 @@ int main(int argc, char * argv[])
 			printf("wrong arg %s\n", argv[2]);
 			wrong_command();
 		}
+	}
+	if(msg == NULL)
+	{
+		printf("Illegal message\n");
+		return 0;
 	}
 	struct response_header * rsp = message_exc(msg, msglen);
 	deal_response(rsp);

@@ -1,6 +1,6 @@
 MODULE_NAME	= myfw
 INCLUDES := -I. -I../Common_Part
-SRC := fw_main.c connect.c rule.c netlink.c response.c nat_pool.c nat_connect.c
+SRC := fw_main.c connect.c rule.c netlink.c response.c nat_pool.c nat_connect.c nat_rule.c
 
 KDIR := /lib/modules/$(shell uname -r)/build
 
@@ -20,6 +20,7 @@ remove:
 	rmmod $(MODULE_NAME).ko
 
 clean:
+	$(MAKE) remove
 	$(MAKE) -C $(KDIR) M=$(PWD) modules clean
 	rm -rf modules.order
 	rm -f *.symvers

@@ -1,7 +1,7 @@
 #ifndef KSTRUCT
 #define KSTRUCT
 
-#include <linux/types.h> //WARNING : maybe sys/types.h
+#include <linux/types.h>
 
 //connect
 typedef struct
@@ -26,6 +26,13 @@ typedef struct
 	u_int8_t isconst;	
 }nat_data;
 
+typedef struct
+{
+	connect_key con;
+	nat_key nat;
+	int if_nat;
+}connect_nat;
+
 //view of the first package
 #define SHOST 0
 #define DHOST 1
@@ -33,27 +40,33 @@ typedef struct
 // rule
 #define RULE_AC 0
 #define RULE_DENY 1
+#define RULE_ERROR 2
 typedef struct
 {
 	unsigned int saddr;
-    unsigned int smask;
-    unsigned int daddr;
-    unsigned int dmask;
-    unsigned int sport; // 源端口范围 高2字节为最小 低2字节为最大
-    unsigned int dport; // 目的端口范围 同上
-    unsigned short action;
-    u_int8_t protocol;
+	unsigned int smask;
+	unsigned int daddr;
+	unsigned int dmask;
+	unsigned int sport; // 源端口范围 高2字节为最小 低2字节为最大
+	unsigned int dport; // 目的端口范围 同上
+	unsigned short action;
+	u_int8_t protocol;
 }rule_info;
+
+// nat_rule
+#define NAT_RULE_MATCH 0
+#define NAT_RULE_ERROR 1
 
 //netlink protocol
 struct request_header 
 {
-    unsigned short opt;
-    unsigned short table;
-    int id;
+	unsigned short opt;
+	unsigned short table;
+	int id;
 };
 #define RULE_TABLE 1
 #define CONNECT_TABLE 2
+#define NAT_RULE_TABLE 3
 
 #define LIST_ITEM 1
 #define ADD_ITEM 2
@@ -64,8 +77,8 @@ struct request_header
 
 struct response_header 
 {
-    unsigned short type, info;
-    unsigned int len;
+	unsigned short type, info;
+	unsigned int len;
 };
 
 #define TYPE_DATA 1
@@ -87,4 +100,5 @@ struct response_header
 #define NAT_EXIST 13
 #define CONNECT_ERROR 14
 #define CONNECT_EXIST 15
+
 #endif

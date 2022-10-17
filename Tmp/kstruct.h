@@ -40,7 +40,6 @@ typedef struct
 // rule
 #define RULE_AC 0
 #define RULE_DENY 1
-#define RULE_ERROR 2
 typedef struct
 {
 	unsigned int saddr;
@@ -53,10 +52,6 @@ typedef struct
 	u_int8_t protocol;
 }rule_info;
 
-// nat_rule
-#define NAT_RULE_MATCH 0
-#define NAT_RULE_ERROR 1
-
 //netlink protocol
 struct request_header 
 {
@@ -66,7 +61,6 @@ struct request_header
 };
 #define RULE_TABLE 1
 #define CONNECT_TABLE 2
-#define NAT_RULE_TABLE 3
 
 #define LIST_ITEM 1
 #define ADD_ITEM 2

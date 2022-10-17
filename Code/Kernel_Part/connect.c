@@ -148,7 +148,7 @@ int connect_find(connect_key key, void ** state)
 	return CONNECT_ERROR;
 }
 
-int connect_find_nat(connect_key key, int * if_nat, nat_key * re)
+int connect_find_nat(connect_key key, int * if_nat, nat_key * re)	//is it suitable to nat ip[0], port[0]?
 {
 	
 	struct hlist_head *hash_bucket = NULL;
@@ -164,8 +164,20 @@ int connect_find_nat(connect_key key, int * if_nat, nat_key * re)
 	pNode = connect_match_no_lock(hash_bucket, &key);
 	if(pNode)
 	{
-		*if_nat=pNode->if_nat;
-		*re=pNode->nat_info;
+		if((pNode->if_nat == -1) || (pNode->if_nat == 0))	//nat_info nothing
+		{
+			*if_nat = pNode->if_nat;
+		}
+		else if(pNode->if_nat == 1 || pNode->if_nat == 2)
+		{
+			if((key.ip[0] == pNode->key.ip[pNode->if_nat-1]) && (key.port[0] == pNode->key.port[pNode->if_nat-1]))
+			{
+				*if_nat=1;
+				*re=pNode->nat_info;
+			}
+			else		//can not nat is ip
+				*if_nat = -1;
+		}
 		
 		read_unlock(&connect_lock);
 		return NO_ERROR;
@@ -175,7 +187,7 @@ int connect_find_nat(connect_key key, int * if_nat, nat_key * re)
 	return CONNECT_ERROR;
 }
 
-int connect_set_nat(connect_key key, int if_nat, nat_key re)
+int connect_set_nat(connect_key key, int if_nat, nat_key re)	//i want to nat ip[0], port[0]
 {
 	struct hlist_head *hash_bucket = NULL;
 	struct connect *pNode = NULL;
@@ -191,9 +203,22 @@ int connect_set_nat(connect_key key, int if_nat, nat_key re)
 	pNode = connect_match_no_lock(hash_bucket, &key);
 	if(pNode)
 	{
-		pNode->if_nat = if_nat;
-		pNode->nat_info = re;
-		
+		if(if_nat == -1)	//nat lose
+		{
+			pNode->if_nat=-1;
+		}
+		else if(if_nat == 1)	//nat success
+		{
+			if( (key.ip[0] == pNode->key.ip[0]) && (key.port[0] == pNode->key.port[0]) )
+				pNode->if_nat=1;
+			else
+				pNode->if_nat=2;
+			pNode->nat_info = re;
+		}
+		else
+		{
+			printk(KERN_ERR "%s:%i unknown nat state %d\n", __FILE__, __LINE__, if_nat);
+		}
 		write_unlock(&connect_lock);
 		return NO_ERROR;
 	}
@@ -245,10 +270,10 @@ int connect_add(connect_key key, void * state)
 }
 
 //返回所有链接
-connect_key* connect_all(unsigned int *len) 
+connect_nat* connect_all(unsigned int *len) 
 {
 	struct connect * pNode;
-	connect_key *mem;
+	connect_nat *mem;
 	unsigned int count=0;
 	int i;
 
@@ -262,8 +287,8 @@ connect_key* connect_all(unsigned int *len)
 		}
 	}
 
-	*len = sizeof(connect_key)*count;
-	mem = (connect_key *)kzalloc(*len, GFP_ATOMIC);
+	*len = sizeof(connect_nat)*count;
+	mem = (connect_nat *)kzalloc(*len, GFP_ATOMIC);
 	if(mem == NULL) 
 	{
 		printk(KERN_ERR "%s:%i all_connect alloc error\n", __FILE__, __LINE__);
@@ -275,14 +300,16 @@ connect_key* connect_all(unsigned int *len)
 	{
 		hlist_for_each_entry(pNode, &connect_list[i], hnode)
 		{
-			mem[count]=pNode->key;
+			mem[count].con=pNode->key;
+			mem[count].nat=pNode->nat_info;
+			mem[count].if_nat=pNode->if_nat;
 			count++;
 		}
 	}
 	read_unlock(&connect_lock);
 	return mem;
 }
-
+/*
 static void connect_del(struct connect * pNode)	//SYX: unsafe
 {
 	//SYX:write lock
@@ -295,6 +322,7 @@ static void connect_del(struct connect * pNode)	//SYX: unsafe
 	}
 	write_unlock(&connect_lock);
 }
+//*/
 
 void connect_del_by_key(connect_key key)	//SYX: unsafe
 {

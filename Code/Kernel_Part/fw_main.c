@@ -19,6 +19,7 @@
 
 #include "connect.h"
 #include "rule.h"
+#include "nat_rule.h"
 #include "netlink.h"
 #include "nat.h"
 
@@ -104,7 +105,7 @@ static void modify_port_in_packet(struct sk_buff *skb, void * pdata, unsigned in
 	hdr->daddr = htonl(dip);
 	hdr->check = 0;
 	hdr->check = ip_fast_csum(hdr, hdr->ihl);
-	printk(KERN_INFO "skbs:%x, ips:%d, pro:%d", skb->csum, skb->ip_summed,hdr->protocol);
+	//printk(KERN_INFO "skbs:%x, ips:%d, pro:%d", skb->csum, skb->ip_summed,hdr->protocol);
 	switch(hdr->protocol)
 	{
 		case IPPROTO_TCP:
@@ -140,7 +141,7 @@ static void modify_port_in_packet(struct sk_buff *skb, void * pdata, unsigned in
 			printk(KERN_ERR "%s:%i other protocol:%d", __FILE__, __LINE__, hdr->protocol);
 			break;
 	}
-	printk(KERN_INFO "skbs:%x, ips:%d, pro:%d", skb->csum, skb->ip_summed,hdr->protocol);
+	//printk(KERN_INFO "skbs:%x, ips:%d, pro:%d", skb->csum, skb->ip_summed,hdr->protocol);
 }
 
 static void modify_port_out_packet(struct sk_buff *skb, void * pdata, unsigned int sip, unsigned short sport)
@@ -157,7 +158,7 @@ static void modify_port_out_packet(struct sk_buff *skb, void * pdata, unsigned i
 	hdr->check = 0;
 	hdr->check = ip_fast_csum(hdr, hdr->ihl);
 	//printk(KERN_INFO "skbs:%x -> %x, ips:%d, pro:%d", skb->csum, *(unsigned int *)(skb->csum), skb->ip_summed,hdr->protocol);
-	printk(KERN_INFO "skbs:%x, skbh:%p, th:%p  ips:%d, pro:%d", skb->csum, skb->head, pdata, skb->ip_summed,hdr->protocol);
+	//printk(KERN_INFO "skbs:%x, skbh:%p, th:%p  ips:%d, pro:%d", skb->csum, skb->head, pdata, skb->ip_summed,hdr->protocol);
 	switch(hdr->protocol)
 	{
 		case IPPROTO_TCP:
@@ -177,7 +178,7 @@ static void modify_port_out_packet(struct sk_buff *skb, void * pdata, unsigned i
 			}
 			else
 			{
-				printk(KERN_INFO "[%s] unexecpt ipsum : %d", __func__, skb->ip_summed);
+				printk(KERN_INFO "[%s] wrong ipsum : %d", __func__, skb->ip_summed);
 			}
 			break;
 		case IPPROTO_UDP:
@@ -197,7 +198,7 @@ static void modify_port_out_packet(struct sk_buff *skb, void * pdata, unsigned i
 			}
 			else
 			{
-				printk(KERN_INFO "[%s] unexecpt ipsum : %d", __func__, skb->ip_summed);
+				printk(KERN_INFO "[%s] wrong ipsum : %d", __func__, skb->ip_summed);
 			}
 			break;
 		case IPPROTO_ICMP:
@@ -212,7 +213,7 @@ static void modify_port_out_packet(struct sk_buff *skb, void * pdata, unsigned i
 				}
 				else
 				{
-					printk(KERN_INFO "[%s] unexecpt ipsum : %d", __func__, skb->ip_summed);
+					printk(KERN_INFO "[%s] wrong ipsum : %d", __func__, skb->ip_summed);
 				}
 			}
 			break;
@@ -236,7 +237,7 @@ unsigned int hook_rules(void *priv,struct sk_buff *skb,const struct nf_hook_stat
 	void * con_state;
 	
 	int err;
-	struct iprule *rule=NULL;
+	int rule;
 	char sbuff[100],dbuff[100];
 	// 初始化
 	struct iphdr *header = (struct iphdr *)skb->data;
@@ -246,7 +247,7 @@ unsigned int hook_rules(void *priv,struct sk_buff *skb,const struct nf_hook_stat
 	proto = header->protocol;
 	getPort(pdata, proto, &sport, &dport);
 	
-	printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, proto:%d, hook:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, proto, state->hook);
+	//printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, proto:%d, hook:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, proto, state->hook);
 
 	/*printk(KERN_INFO "[%s] in: %p,out: %p", __func__, state->in, state->out);
 	if(state->in)
@@ -272,7 +273,8 @@ unsigned int hook_rules(void *priv,struct sk_buff *skb,const struct nf_hook_stat
 		tcpHeader = (struct tcphdr *)pdata;
 		if(tcpHeader->syn!=1 || tcpHeader->ack!=0)	//!syn
 		{
-			printk(KERN_INFO "[%s] not a syn", __func__);
+			printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, proto:%d, hook:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, proto, state->hook);
+			printk(KERN_INFO "[%s] expect a syn for tcp, but receive a non-syn packet", __func__);
 			return NF_DROP;
 		}
 	}
@@ -281,15 +283,17 @@ unsigned int hook_rules(void *priv,struct sk_buff *skb,const struct nf_hook_stat
 		icmpHeader = (struct icmphdr *)pdata;
 		if(icmpHeader->type == ICMP_ECHOREPLY )	//没有询问只有应答
 		{
-			printk(KERN_INFO "[%s] why recieved a icmp reply", __func__);
+			printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, proto:%d, hook:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, proto, state->hook);
+			printk(KERN_INFO "[%s] expect a icmp echo request, but receive a echo reply", __func__);
 			return NF_DROP;
 		}
 	}
 	
 	rule=iprule_match(&key);
-	if(!rule || (rule->data.action != RULE_AC))
+	if((rule==RULE_ERROR) || (rule != RULE_AC))
 	{
-		printk(KERN_INFO "[%s] rule refuse %p", __func__, rule);
+		printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, proto:%d, hook:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, proto, state->hook);
+		printk(KERN_INFO "[%s] refuse according to rule %d", __func__, rule);
 		return NF_DROP;
 	}
 	
@@ -298,6 +302,8 @@ unsigned int hook_rules(void *priv,struct sk_buff *skb,const struct nf_hook_stat
 	//printk(KERN_INFO "[%s] connection add %p", __func__, conn);
 	if(err != NO_ERROR)
 	{
+		printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, proto:%d, hook:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, proto, state->hook);
+		printk(KERN_INFO "[%s] connection add error", __func__);
 		//state free
 		return NF_DROP;
 	}
@@ -328,17 +334,19 @@ unsigned int hook_nat_in(void *priv,struct sk_buff *skb,const struct nf_hook_sta
 	proto = header->protocol;
 	get_port_nat(pdata ,proto, &sport, &dport);
 	
-	printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, proto:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, proto);
+	
 	//printk(KERN_INFO "[%s] in: %p,out: %p,in_name: %s", __func__, state->in, state->out, state->in->name);
 	
 	key=init_nat_key(dip, dport, proto);
 	err = nat_find(key, &nat_re);
 	if(err)
 	{
+		printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, proto:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, proto);
+		printk(KERN_INFO "[%s] fail to make nat", __func__);
 		//do nothing
 		return NF_ACCEPT;
 	}
-	printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, nip:%s, nport:%d, proto:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, ip_buff(nbuff, nat_re.ip), nat_re.port, proto);
+	//printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, nip:%s, nport:%d, proto:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, ip_buff(nbuff, nat_re.ip), nat_re.port, proto);
 
 	modify_port_in_packet(skb, pdata, nat_re.ip, nat_re.port);
 
@@ -362,6 +370,8 @@ unsigned int hook_nat_out(void *priv,struct sk_buff *skb,const struct nf_hook_st
 	int err, if_nat;
 	
 	connect_key con_key;
+	rule_info rule;
+	unsigned low,high;
 	
 	char sbuff[100],dbuff[100], nbuff[100];
 	// 初始化
@@ -387,7 +397,7 @@ unsigned int hook_nat_out(void *priv,struct sk_buff *skb,const struct nf_hook_st
 	err = connect_find_nat(con_key, &if_nat, &key);
 	if(err != NO_ERROR) 
 	{
-		printk(KERN_ERR "%s:%i nat find unknown connect", __FILE__, __LINE__);
+		printk(KERN_ERR "%s:%i nat find unknown connection", __FILE__, __LINE__);
 		return NF_DROP;
 	}
 	if(if_nat==1)
@@ -397,26 +407,44 @@ unsigned int hook_nat_out(void *priv,struct sk_buff *skb,const struct nf_hook_st
 	else if(if_nat==0)	//first
 	{
 		if_nat=-1;
-		tip = sip;	//SYX: ip...
-		if(header->protocol == IPPROTO_ICMP)
+		key = init_nat_key(sip, sport, proto);
+		if(natrule_match(&key, &rule) == NAT_RULE_ERROR)
 		{
-			icmpHeader = (struct icmphdr *)pdata;
-			if(icmpHeader->type == ICMP_ECHO)
+			printk(KERN_INFO "[%s] sip:%s, sport:%d, proto:%d no nat rule", __func__, ip_buff(sbuff, sip), sport, proto);
+		}
+		else
+		{
+			tip = rule.daddr;	//SYX: ip...
+			if(header->protocol == IPPROTO_ICMP)
 			{
-				if(get_id(&tport))
-					printk(KERN_INFO "icmp id error, nat fail");
+				icmpHeader = (struct icmphdr *)pdata;
+				if(icmpHeader->type == ICMP_ECHO)
+				{
+					if(get_id(&tport))
+						printk(KERN_INFO "[%s] icmp id error, nat failed", __func__);
+					else
+						if_nat=1;
+				}
+			}
+			else if(header->protocol == IPPROTO_TCP || header->protocol == IPPROTO_UDP)
+			{
+				low = rule.dport>>16, high = rule.dport&0xffff;
+				if(low == 0 && high == 0xffff)
+				{
+					if(get_port(&tport))
+						printk(KERN_INFO "[%s] port error, nat failed", __func__);
+					else
+						if_nat=1;
+				}
 				else
-					if_nat=1;
+				{
+					if(get_port_range(&tport, low, high))
+						printk(KERN_INFO "[%s] port error, nat failed", __func__);
+					else
+						if_nat=1;
+				}
 			}
 		}
-		else if(header->protocol == IPPROTO_TCP || header->protocol == IPPROTO_UDP)
-		{
-			if(get_port(&tport))
-				printk(KERN_INFO "port error, nat fail");
-			else
-				if_nat=1;
-		}
-		//other do nothing
 		
 		if(if_nat==1)
 		{
@@ -433,17 +461,20 @@ unsigned int hook_nat_out(void *priv,struct sk_buff *skb,const struct nf_hook_st
 				{
 					put_port(tport);
 				}
-				printk(KERN_INFO "nat add error");
+				printk(KERN_INFO "[%s] nat add error", __func__);
 				if_nat=-1;
 			}
 			if(err == NAT_EXIST)
 			{
-				printk("nat already exist");
+				printk(KERN_INFO "[%s] nat already exist", __func__);
 			}
 		}
 		
 		err = connect_set_nat(con_key, if_nat, key);
-		
+		if(err == NO_ERROR && if_nat==1)
+		{
+			printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, nip:%s, nport:%d, proto:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, ip_buff(nbuff,tip), tport, proto);
+		}
 	}
 	
 	if(if_nat == -1)
@@ -452,7 +483,6 @@ unsigned int hook_nat_out(void *priv,struct sk_buff *skb,const struct nf_hook_st
 		return NF_ACCEPT;
 	}
 	
-	printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, nip:%s, nport:%d, proto:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, ip_buff(nbuff,tip), tport, proto);
 	
 	//sip=tip, sport=tport;
 	//printk(KERN_INFO "[%s] sip:%s, sport:%d, dip:%s, dport:%d, proto:%d", __func__, ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, proto);
@@ -536,6 +566,7 @@ static void mod_exit(void){
 	nf_unregister_net_hook(&init_net,&natop_out);
 	printk("my firewall module clear nat_list.\n");
 	nat_connect_exit();
+	nat_rule_exit();
 #endif
 	
 	printk("my firewall module remove netlink.\n");
@@ -546,6 +577,6 @@ static void mod_exit(void){
 }
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("syx");
+MODULE_AUTHOR("lwz");
 module_init(mod_init);
 module_exit(mod_exit);

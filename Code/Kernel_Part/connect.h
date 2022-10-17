@@ -26,7 +26,7 @@ int connect_set_nat(connect_key key, int if_nat, nat_key re);
 //void connect_del(struct connect * pNode);
 void connect_del_by_key(connect_key key);
 void connect_del_rule(rule_info * rule);
-connect_key* connect_all(unsigned int *len);
+connect_nat* connect_all(unsigned int *len);
 void connect_init(void);
 void connect_exit(void);
 

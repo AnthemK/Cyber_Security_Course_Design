@@ -11,8 +11,11 @@ echo commit message will be:
 echo $commit_msg
 # hou mian yao ti huan cheng  make
 
-echo clean syx\'s project
-make -s -C Other_Project/syx clean #clean syx 
+#echo clean syx\'s project
+#make -s -C Other_Project/syx clean #clean syx 
+
+echo clean lwz\'s project
+make -s -C Code clean
 
 git add *
 git commit -m "$commit_msg"

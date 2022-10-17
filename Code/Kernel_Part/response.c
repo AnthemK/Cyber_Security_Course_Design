@@ -3,6 +3,7 @@
 #include "kstruct.h"
 #include "connect.h"
 #include "rule.h"
+#include "nat_rule.h"
 #include "netlink.h"
 
 int response_to(int pid, int type, int info, const void * msg, int len)
@@ -47,7 +48,7 @@ int response_message(int pid, void * msg, unsigned int len)
 		{
 			case RULE_TABLE:
 				if( len != sizeof(struct request_header) )
-					{
+				{
 					printk(KERN_ERR "%s:%i packet error len:%d\n", __FILE__, __LINE__, len);
 					return PACKET_ERROR;
 				}
@@ -66,34 +67,56 @@ int response_message(int pid, void * msg, unsigned int len)
 				break;
 			case CONNECT_TABLE:
 				if( len != sizeof(struct request_header) )
-					{
-						printk(KERN_ERR "%s:%i packet error len:%d\n", __FILE__, __LINE__, len);
-						return PACKET_ERROR;
-					}
-					mmsg=connect_all(&mlen);
-					if(mmsg)
-					{
-						response_to(pid, TYPE_DATA, CONNECT_TABLE, mmsg, mlen);
-						err = NO_ERROR;
-						kfree(mmsg);
-					}
-					else
-					{
-						response_to(pid, TYPE_MSG, ALLOC_ERROR, NULL, 0);
-						err = ALLOC_ERROR;
-					}
-					break;
+				{
+					printk(KERN_ERR "%s:%i packet error len:%d\n", __FILE__, __LINE__, len);
+					return PACKET_ERROR;
+				}
+				mmsg=connect_all(&mlen);
+				if(mmsg)
+				{
+					response_to(pid, TYPE_DATA, CONNECT_TABLE, mmsg, mlen);
+					err = NO_ERROR;
+					kfree(mmsg);
+				}
+				else
+				{
+					response_to(pid, TYPE_MSG, ALLOC_ERROR, NULL, 0);
+					err = ALLOC_ERROR;
+				}
+				break;
+			case NAT_RULE_TABLE:
+				if( len != sizeof(struct request_header) )
+				{
+					printk(KERN_ERR "%s:%i packet error len:%d\n", __FILE__, __LINE__, len);
+					return PACKET_ERROR;
+				}
+				printk("listhh");
+				mmsg=natrule_all(&mlen);
+				if(mmsg)
+				{
+					response_to(pid, TYPE_DATA, NAT_RULE_TABLE, mmsg, mlen);
+					err = NO_ERROR;
+					kfree(mmsg);
+				}
+				else
+				{
+					response_to(pid, TYPE_MSG, ALLOC_ERROR, NULL, 0);
+					err = ALLOC_ERROR;
+				}
+				break;
 			default:
 				response_to(pid, TYPE_MSG, err, NULL, 0);
 				err = TABLE_ERROR;
 		}
 		return err;
 	}
-	if(req->table != RULE_TABLE)
+	printk("notlisthh");
+	if((req->table != RULE_TABLE) && (req->table != NAT_RULE_TABLE))
 	{
 		response_to(pid, TYPE_MSG, TABLE_ERROR, NULL, 0);
 		return TABLE_ERROR;
 	}
+	printk("notlisthh");
 	switch (req->opt)
 	{
 		case ADD_ITEM:
@@ -102,7 +125,11 @@ int response_message(int pid, void * msg, unsigned int len)
 				printk(KERN_ERR "%s:%i packet error len:%d\n", __FILE__, __LINE__, len);
 				return PACKET_ERROR;
 			}
-			if(err = iprule_add(data, req->id)) 
+			if(req->table == RULE_TABLE)
+				err = iprule_add(data, req->id);
+			else
+				printk("nattablehh"), err = natrule_add(data, req->id);
+			if(err) 
 			{
 				//sendMsgToApp(pid, "Fail: no such rule or retry it.");
 				response_to(pid, TYPE_MSG, err, NULL, 0);
@@ -121,7 +148,11 @@ int response_message(int pid, void * msg, unsigned int len)
 				printk(KERN_ERR "%s:%i packet error len:%d\n", __FILE__, __LINE__, len);
 				return PACKET_ERROR;
 			}
-			if(err = iprule_del(req->id)) 
+			if(req->table == RULE_TABLE)
+				err = iprule_del(req->id);
+			else
+				err = natrule_del(req->id);
+			if(err) 
 			{
 				//sendMsgToApp(pid, "Fail: no such rule or retry it.");
 				response_to(pid, TYPE_MSG, err, NULL, 0);
@@ -140,7 +171,11 @@ int response_message(int pid, void * msg, unsigned int len)
 				printk(KERN_ERR "%s:%i packet error len:%d\n", __FILE__, __LINE__, len);
 				return PACKET_ERROR;
 			}
-			if(err = iprule_set(data, req->id)) 
+			if(req->table == RULE_TABLE)
+				err = iprule_set(data, req->id);
+			else
+				err = natrule_set(data, req->id);
+			if(err) 
 			{
 				//sendMsgToApp(pid, "Fail: no such rule or retry it.");
 				response_to(pid, TYPE_MSG, err, NULL, 0);
@@ -159,7 +194,11 @@ int response_message(int pid, void * msg, unsigned int len)
 				printk(KERN_ERR "%s:%i packet error len:%d\n", __FILE__, __LINE__, len);
 				return PACKET_ERROR;
 			}
-			if(err = iprule_swap(*(int *)data, req->id))
+			if(req->table == RULE_TABLE)
+				err = iprule_swap(*(int *)data, req->id);
+			else
+				err = natrule_swap(*(int *)data, req->id);
+			if(err)
 			{
 				//sendMsgToApp(pid, "Fail: no such rule or retry it.");
 				response_to(pid, TYPE_MSG, err, NULL, 0);
@@ -178,7 +217,11 @@ int response_message(int pid, void * msg, unsigned int len)
 				printk(KERN_ERR "%s:%i packet error len:%d\n", __FILE__, __LINE__, len);
 				return PACKET_ERROR;
 			}
-			if(err = iprule_put(*(int *)data, req->id))
+			if(req->table == RULE_TABLE)
+				err = iprule_put(*(int *)data, req->id);
+			else
+				err = natrule_put(*(int *)data, req->id);
+			if(err)
 			{
 				//sendMsgToApp(pid, "Fail: no such rule or retry it.");
 				response_to(pid, TYPE_MSG, err, NULL, 0);

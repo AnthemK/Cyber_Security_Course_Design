@@ -1,0 +1,18 @@
+((load | add | del | set | swap | put | print) rule [option] | ( add | del | set | swap | put | print) natrule [option] | <print> connect )
+
+load rule $(filepath)
+add rule $(id) $(srcip) $(srcport) $(dstip) $(dst_port) $(protocol(* | TCP | UDP | ICMP)) $(action(allow | drop)) 
+del rule $(id)
+set rule $(id) $(srcip) $(srcport) $(dstip) $(dst_port) $(protocol(* | TCP | UDP | ICMP)) $(action(allow | drop)) 
+swap rule $(id1) $(id2)
+swap rule $(id1) $(id2)
+print rule [$(filepath)]
+
+add natrule $(id) $(srcip) $(srcport) $(dstip) $(dst_port) $(protocol(* | TCP | UDP | ICMP))
+del natrule $(id)
+set natrule $(id) $(srcip) $(srcport) $(dstip) $(dst_port) $(protocol(* | TCP | UDP | ICMP))
+swap natrule $(id1) $(id2)
+swap natrule $(id1) $(id2)
+print natrule
+
+print connect

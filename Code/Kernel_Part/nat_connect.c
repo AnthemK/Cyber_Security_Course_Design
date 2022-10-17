@@ -3,6 +3,7 @@
 //#include <linux/module.h>
 #include <linux/slab.h>	//kmalloc,kfree
 #include <linux/timer.h>
+#include <linux/in.h>
 
 #include <linux/version.h>
 
@@ -84,6 +85,20 @@ static struct nat *nat_match_no_lock(struct hlist_head * hash_bucket, nat_key * 
 	return NULL;
 }
 
+static void nat_del_port(nat_key key)
+{
+	if(key.protocol == IPPROTO_ICMP)
+	{
+		put_id(key.port);
+	}
+	else if((key.protocol == IPPROTO_TCP) || (key.protocol == IPPROTO_UDP))
+	{
+		put_port(key.port);
+	}
+	else
+		printk(KERN_ERR "%s:%i unknown proto %d", __FILE__, __LINE__, key.protocol);
+}
+
 nat_key init_nat_key(unsigned int ip, unsigned short port, u_int8_t protocol)
 {
 	nat_key re={
@@ -103,6 +118,7 @@ nat_data init_nat_data(unsigned int ip, unsigned short port, u_int8_t isconst)
 	};
 	return re;
 }
+
 
 int nat_find(nat_key key, nat_data * re)
 {
@@ -175,7 +191,7 @@ int nat_add(nat_key key, nat_data data)
 	
 	return NO_ERROR;
 }
-
+/*
 static void nat_del(struct nat * pNode)	//SYX: unsafe
 {
 	//SYX:write lock
@@ -183,11 +199,12 @@ static void nat_del(struct nat * pNode)	//SYX: unsafe
 	if(pNode)
 	{
 		hlist_del(&pNode->hnode);
+		nat_del_port(pNode->key);
 		kfree(pNode);
 	}
 	write_unlock(&nat_lock);
 }
-
+//*/
 void nat_del_by_key(nat_key key)
 {
 	struct hlist_head *hash_bucket = NULL;
@@ -205,6 +222,7 @@ void nat_del_by_key(nat_key key)
 	if(pNode)
 	{
 		hlist_del(&pNode->hnode);
+		nat_del_port(key);
 		kfree(pNode);
 	}
 	write_unlock(&nat_lock);
@@ -226,6 +244,7 @@ static void nat_clean(void)
 			if(!pNode->data.isconst && is_timeout(pNode->expires))
 			{
 				hlist_del(&pNode->hnode);
+				nat_del_port(pNode->key);
 				kfree(pNode);
 			}
 		}

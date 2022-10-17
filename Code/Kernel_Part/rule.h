@@ -17,7 +17,7 @@ int iprule_add(rule_info * new_rule, int id);
 int iprule_set(rule_info * new_rule, int id);
 int iprule_put(int id1, int id2);
 rule_info* iprule_all(unsigned int *len);
-struct iprule * iprule_match(connect_key * key);
+int iprule_match(connect_key * key);
 void rule_exit(void);
 #endif
 
