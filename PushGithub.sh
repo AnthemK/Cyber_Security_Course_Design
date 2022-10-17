@@ -1,5 +1,11 @@
 #!/bin/bash
 
+if [ $(whoami ) != "root" ]
+then
+	echo "Please use sudo "
+	exit 0
+fi
+
 Now_time=$(date "+%Y-%m-%d %H:%M:%S")
 if [ -z "$#" ]
 then
