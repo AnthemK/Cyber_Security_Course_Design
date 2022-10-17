@@ -17,7 +17,7 @@ install:
 	$(MAKE) clean
 
 remove:
-	rmmod $(MODULE_NAME).ko
+	-rmmod $(MODULE_NAME).ko
 
 clean:
 	$(MAKE) remove
