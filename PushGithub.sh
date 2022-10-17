@@ -19,5 +19,4 @@ make -s -C Code clean
 
 git add *
 git commit -m "$commit_msg"
-su user
 git push origin main
