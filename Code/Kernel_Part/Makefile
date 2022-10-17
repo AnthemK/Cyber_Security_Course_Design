@@ -13,7 +13,7 @@ all:
 
 install:
 	insmod $(PWD)/$(MODULE_NAME).ko
-	# $(MAKE) clean
+	$(MAKE) clean
 
 remove:
 	-rmmod $(MODULE_NAME).ko
@@ -23,4 +23,4 @@ clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules clean
 	rm -rf modules.order
 	rm -f *.symvers
-	rm -f $(shell ls ../Common_Part)
+	# rm -f $(shell ls ../Common_Part)
