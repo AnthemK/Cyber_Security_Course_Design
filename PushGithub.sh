@@ -24,5 +24,6 @@ echo clean lwz\'s project
 make -s -C Code clean
 
 git add *
+git add .*
 git commit -m "$commit_msg"
 git push origin main
