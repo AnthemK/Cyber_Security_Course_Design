@@ -23,7 +23,8 @@ make -s -C Other_Project/syx clean #clean syx
 echo clean lwz\'s project
 make -s -C Code clean
 
+# If you delete a folder,or add it into .gitignore
+# git rm -r --cached .
 git add *
-git add .*
 git commit -m "$commit_msg"
 git push origin main

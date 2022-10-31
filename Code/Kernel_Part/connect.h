@@ -7,10 +7,10 @@
 
 struct connect 
 {
-	struct hlist_node hnode;
-	connect_key key; // 连接标识符
-	unsigned long expires; // 超时时间
-	void * state;	//
+	struct hlist_node hnode;   //hash header
+	connect_key key; // hash key
+	unsigned long expires; // Maximum Survival Time
+	void * state;	// hash value
 	nat_key nat_info;
 	int if_nat;
 };

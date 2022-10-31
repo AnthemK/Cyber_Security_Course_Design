@@ -1,5 +1,6 @@
-4
-1 * * * 80 TCP allow 
-2 * * * 443 TCP allow 
-3 * * * 53 UDP allow 
+5
+1 * * * * TCP allow 
+2 * * * * TCP allow 
+3 * * * * UDP allow 
 4 * * * * ICMP allow 
+5 * * * * * allow
