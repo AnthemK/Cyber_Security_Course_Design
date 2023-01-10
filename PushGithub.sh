@@ -27,4 +27,4 @@ make -s -C Code clean
 # git rm -r --cached .
 git add *
 git commit -m "$commit_msg"
-git push origin Stable_1.0_Version
+git push origin main
