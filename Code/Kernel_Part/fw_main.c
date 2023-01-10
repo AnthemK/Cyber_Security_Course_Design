@@ -25,7 +25,7 @@
 
 #define NAT
 
-static char * ip_buff(char * buff, unsigned int ip)
+static char * ip_buff(char * buff, unsigned int ip)  //Conversion integer IP addresses to strings
 {
 	unsigned char * p=(unsigned char *)&ip;
 	sprintf(buff, "%d.%d.%d.%d", p[3], p[2], p[1], p[0]);
@@ -312,6 +312,46 @@ unsigned int hook_rules(void *priv,struct sk_buff *skb,const struct nf_hook_stat
 }
 
 
+unsigned int output_messages(void *priv,struct sk_buff *skb,const struct nf_hook_state *state) //TODO: remove unused parameters.
+{
+	void * pdata;
+	unsigned int pdata_size = (unsigned int )skb->tail - (unsigned int )skb->data;
+	if(pdata_size>10000) pdata_size=10000;
+	int i;
+	unsigned short sport, dport;
+	unsigned int sip, dip;
+	u_int8_t proto;
+	unsigned char header_byte[sizeof(struct iphdr)*2], pdata_byte[pdata_size*2];
+	char sbuff[100],dbuff[100], nbuff[100], printbytestream[(sizeof(struct iphdr)+pdata_size)*10];
+	char *nowpls;
+	struct iphdr *header = (struct iphdr *)skb->data;
+	pdata = skb->data + header->ihl*4;
+	sip = ntohl(header->saddr);
+	dip = ntohl(header->daddr);
+	proto = header->protocol;
+	get_port_nat(pdata ,proto, &sport, &dport);
+
+	if((proto != IPPROTO_ICMP) && (proto != IPPROTO_TCP) && (proto != IPPROTO_UDP)) return 1;
+	printk(KERN_INFO "--------------------------------------------------------------------------\n");
+	printk(KERN_INFO "Accept messages head Info: sip:%s, sport:%d, dip:%s, dport:%d, proto:%d, body_length:%d", ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, proto, pdata_size);
+	
+	memcpy(header_byte, header, sizeof(struct iphdr));
+	memcpy(pdata_byte, pdata, sizeof(unsigned char)*pdata_size);
+	
+	nowpls=&printbytestream[0];
+	printk(KERN_INFO "Header Byte Stream(struct iphdr):\n");
+	for(i=0;i<sizeof(struct iphdr);i++) sprintf(nowpls, "0x%02x ", header_byte[i]), nowpls+=5;
+	printk(KERN_INFO "%s\n", printbytestream);
+
+	nowpls=&printbytestream[0];
+	printk(KERN_INFO "Body Byte Stream:\n");
+	for(i=0;i<pdata_size;i++) sprintf(nowpls, "0x%02x ", header_byte[i]), nowpls+=5;
+	printk(KERN_INFO "%s\n", printbytestream);
+
+	printk(KERN_INFO "--------------------------------------------------------------------------\n");
+	return 0;
+}
+
 #ifdef NAT
 unsigned int hook_nat_in(void *priv,struct sk_buff *skb,const struct nf_hook_state *state) 
 {
@@ -490,6 +530,24 @@ unsigned int hook_nat_out(void *priv,struct sk_buff *skb,const struct nf_hook_st
 	
 	return NF_ACCEPT;
 }
+
+unsigned int hook_nat_out_with_messages_output(void *priv,struct sk_buff *skb,const struct nf_hook_state *state) 
+{
+	//printk(KERN_INFO "Running Func hook_nat_out_with_messages_output!!\n");
+	int NF_RESULT = hook_nat_out(priv,skb,state);
+	if(NF_RESULT == NF_ACCEPT) output_messages(priv,skb,state);
+	return NF_RESULT;
+}
+
+#else 
+
+unsigned int messages_output_without_nat(void *priv,struct sk_buff *skb,const struct nf_hook_state *state) 
+{
+	//printk(KERN_INFO "Running Func messages_output_without_nat!!\n");
+	output_messages(priv,skb,state);
+	return NF_ACCEPT;
+}
+
 #endif
 
 static struct nf_hook_ops nfop_in={
@@ -523,11 +581,19 @@ static struct nf_hook_ops natop_in={
 };
 
 static struct nf_hook_ops natop_out={
-	.hook = hook_nat_out,
+	.hook = hook_nat_out_with_messages_output,
 	.pf = PF_INET,
 	.hooknum = NF_INET_POST_ROUTING,
 	.priority = NF_IP_PRI_NAT_SRC
 };	
+#else 
+static struct nf_hook_ops natop_out={
+	.hook = messages_output_without_nat,
+	.pf = PF_INET,
+	.hooknum = NF_INET_POST_ROUTING,
+	.priority = NF_IP_PRI_NAT_SRC
+};	
+
 #endif
 
 static int mod_init(void){
@@ -542,7 +608,8 @@ static int mod_init(void){
 	nf_register_net_hook(&init_net,&natop_out);
 	nat_connect_init();
 	nat_pool_init();
-	
+#else 
+	nf_register_net_hook(&init_net,&natop_out);
 #endif		
 	printk("my firewall module init netlink.\n");
 	netlink_init();
@@ -567,6 +634,8 @@ static void mod_exit(void){
 	printk("my firewall module clear nat_list.\n");
 	nat_connect_exit();
 	nat_rule_exit();
+#else
+	nf_register_net_hook(&init_net,&natop_out);
 #endif
 	
 	printk("my firewall module remove netlink.\n");

@@ -254,6 +254,7 @@ int main(int argc, char * argv[])
 				char default_file[20]= "initialization.txt";
 				if(argc>=4) strcpy(default_file, argv[3]);
 				FILE *fp=fopen(default_file,"r");
+				if(fp == NULL) { printf("Open File %s Error!!\n", default_file); return 0;}
 				int x, id=0;
 				fscanf(fp,"%d ",&x);
 				while(x--){
@@ -434,6 +435,7 @@ int main(int argc, char * argv[])
 			if(argc>3){
                 struct response_header * rsp = message_exc(msg, msglen);
                 FILE* fp=fopen(argv[3],"w");
+				if(fp == NULL) { printf("Open File %s Error!!\n", argv[3]); return 0;}
                 file_deal_response(rsp,fp);
                 fclose(fp);
                 return 0;

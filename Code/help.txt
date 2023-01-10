@@ -4,6 +4,8 @@
 ./client add rule -1 '*' '*' '*' '*' ICMP allow
 ./client add rule -1 192.168.53.148 '*' 192.168.53.1/24 '*' '*' allow
 
+./client load rule ./Test_Tools/Allowall.txt
+
 ./client add natrule 0 '*' '*' 192.168.160.136 '*' '*'
 
 
