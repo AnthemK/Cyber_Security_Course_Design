@@ -92,6 +92,71 @@ static void get_port_nat(const void *data, u_int8_t protocol, unsigned short *sr
 	}
 }
 
+
+unsigned int output_messages(struct sk_buff *skb) 
+{
+	void * pdata;
+	unsigned int pdata_size = skb->len - skb->data_len;
+	int i;
+	unsigned short sport, dport;
+	unsigned int sip, dip;
+	u_int8_t proto;
+	unsigned char *header_byte, *pdata_byte, *printbytestream, *nowpls;
+	char sbuff[100],dbuff[100], protostr[100];
+	struct iphdr *header = (struct iphdr *)skb->data;
+	pdata = skb->data + header->ihl*4;
+	sip = ntohl(header->saddr);
+	dip = ntohl(header->daddr);
+	proto = header->protocol;
+	get_port_nat(pdata ,proto, &sport, &dport);
+
+	if((proto != IPPROTO_ICMP) && (proto != IPPROTO_TCP) && (proto != IPPROTO_UDP)) return 1;
+	pdata_size -= header->ihl*4;
+	if(pdata_size>1000000) pdata_size=1000000;  //maybe 65536?
+	
+	switch(proto) {
+		case IPPROTO_ICMP: 
+			strcpy(protostr, "ICMP");
+			break;
+		case IPPROTO_TCP: 
+			strcpy(protostr, "TCP");
+			break;
+		case IPPROTO_UDP: 
+			strcpy(protostr, "UDP");
+			break;
+		default: 
+			strcpy(protostr, "Othe");
+			break;	
+	}
+
+	header_byte = (unsigned char *)kmalloc(sizeof(struct iphdr)+10, GFP_KERNEL);
+	pdata_byte = (unsigned char *)kmalloc(pdata_size+10, GFP_KERNEL);
+	printbytestream = (char *)kmalloc((sizeof(struct iphdr)+pdata_size)*6+10, GFP_KERNEL);
+
+	printk(KERN_INFO "-----------------------------------------------------Start Captured message---------------------------------------------------------------\n");
+	printk(KERN_INFO "Messages Head Info: sip:%s, sport:%d, dip:%s, dport:%d, proto:%d(%s), packet_data_length:%d", ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, proto, protostr, pdata_size);
+	
+	memcpy(header_byte, header, sizeof(struct iphdr));
+	memcpy(pdata_byte, pdata, pdata_size);
+	
+	nowpls=printbytestream;
+	printk(KERN_INFO "Header Byte Stream(struct iphdr):\n");
+	for(i=0;i<sizeof(struct iphdr);i++) sprintf(nowpls, "0x%02x ", *(header_byte+i)), nowpls+=5;
+	printk(KERN_INFO "%s\n", printbytestream);
+
+	nowpls=printbytestream;
+	printk(KERN_INFO "Packet Data Byte Stream(%d bytes):\n", pdata_size);
+	for(i=0;i<pdata_size;i++) sprintf(nowpls, "0x%02x ", *(pdata_byte+i)), nowpls+=5;
+	printk(KERN_INFO "%s\n", printbytestream);
+
+	printk(KERN_INFO "------------------------------------------------------End Captured message----------------------------------------------------------------\n");
+
+	kfree(header_byte);
+	kfree(pdata_byte);
+	kfree(printbytestream);
+	return 0;
+}
+
 static void modify_port_in_packet(struct sk_buff *skb, void * pdata, unsigned int dip, unsigned short dport)
 {
 	struct tcphdr *tcpHeader;
@@ -265,8 +330,6 @@ unsigned int hook_rules(void *priv,struct sk_buff *skb,const struct nf_hook_stat
 		return NF_ACCEPT;
 	}
 	
-	
-	
 	//SYX: first package
 	if(proto == IPPROTO_TCP)
 	{
@@ -312,44 +375,11 @@ unsigned int hook_rules(void *priv,struct sk_buff *skb,const struct nf_hook_stat
 }
 
 
-unsigned int output_messages(void *priv,struct sk_buff *skb,const struct nf_hook_state *state) //TODO: remove unused parameters.
+unsigned int hook_rules_with_output(void *priv,struct sk_buff *skb,const struct nf_hook_state *state) 
 {
-	void * pdata;
-	unsigned int pdata_size = (unsigned int )skb->tail - (unsigned int )skb->data;
-	if(pdata_size>10000) pdata_size=10000;
-	int i;
-	unsigned short sport, dport;
-	unsigned int sip, dip;
-	u_int8_t proto;
-	unsigned char header_byte[sizeof(struct iphdr)*2], pdata_byte[pdata_size*2];
-	char sbuff[100],dbuff[100], nbuff[100], printbytestream[(sizeof(struct iphdr)+pdata_size)*10];
-	char *nowpls;
-	struct iphdr *header = (struct iphdr *)skb->data;
-	pdata = skb->data + header->ihl*4;
-	sip = ntohl(header->saddr);
-	dip = ntohl(header->daddr);
-	proto = header->protocol;
-	get_port_nat(pdata ,proto, &sport, &dport);
-
-	if((proto != IPPROTO_ICMP) && (proto != IPPROTO_TCP) && (proto != IPPROTO_UDP)) return 1;
-	printk(KERN_INFO "--------------------------------------------------------------------------\n");
-	printk(KERN_INFO "Accept messages head Info: sip:%s, sport:%d, dip:%s, dport:%d, proto:%d, body_length:%d", ip_buff(sbuff, sip), sport, ip_buff(dbuff, dip), dport, proto, pdata_size);
-	
-	memcpy(header_byte, header, sizeof(struct iphdr));
-	memcpy(pdata_byte, pdata, sizeof(unsigned char)*pdata_size);
-	
-	nowpls=&printbytestream[0];
-	printk(KERN_INFO "Header Byte Stream(struct iphdr):\n");
-	for(i=0;i<sizeof(struct iphdr);i++) sprintf(nowpls, "0x%02x ", header_byte[i]), nowpls+=5;
-	printk(KERN_INFO "%s\n", printbytestream);
-
-	nowpls=&printbytestream[0];
-	printk(KERN_INFO "Body Byte Stream:\n");
-	for(i=0;i<pdata_size;i++) sprintf(nowpls, "0x%02x ", header_byte[i]), nowpls+=5;
-	printk(KERN_INFO "%s\n", printbytestream);
-
-	printk(KERN_INFO "--------------------------------------------------------------------------\n");
-	return 0;
+	unsigned int NF_RESULT = hook_rules(priv, skb, state);
+	if(NF_RESULT == NF_ACCEPT) output_messages(skb);
+	return NF_RESULT;
 }
 
 #ifdef NAT
@@ -365,7 +395,7 @@ unsigned int hook_nat_in(void *priv,struct sk_buff *skb,const struct nf_hook_sta
 	nat_data nat_re;
 	int err;
 	
-	char sbuff[100],dbuff[100], nbuff[100];
+	char sbuff[100],dbuff[100];
 	// 初始化
 	struct iphdr *header = (struct iphdr *)skb->data;
 	pdata = skb->data + header->ihl*4;
@@ -531,41 +561,25 @@ unsigned int hook_nat_out(void *priv,struct sk_buff *skb,const struct nf_hook_st
 	return NF_ACCEPT;
 }
 
-unsigned int hook_nat_out_with_messages_output(void *priv,struct sk_buff *skb,const struct nf_hook_state *state) 
-{
-	//printk(KERN_INFO "Running Func hook_nat_out_with_messages_output!!\n");
-	int NF_RESULT = hook_nat_out(priv,skb,state);
-	if(NF_RESULT == NF_ACCEPT) output_messages(priv,skb,state);
-	return NF_RESULT;
-}
-
-#else 
-
-unsigned int messages_output_without_nat(void *priv,struct sk_buff *skb,const struct nf_hook_state *state) 
-{
-	//printk(KERN_INFO "Running Func messages_output_without_nat!!\n");
-	output_messages(priv,skb,state);
-	return NF_ACCEPT;
-}
 
 #endif
 
 static struct nf_hook_ops nfop_in={
-	.hook = hook_rules,
+	.hook = hook_rules_with_output,
 	.pf = PF_INET,
 	.hooknum = NF_INET_LOCAL_IN,
 	.priority = NF_IP_PRI_FIRST
 };
 
 static struct nf_hook_ops nfop_out={
-	.hook = hook_rules,
+	.hook = hook_rules_with_output,
 	.pf = PF_INET,
 	.hooknum = NF_INET_LOCAL_OUT,
 	.priority = NF_IP_PRI_FIRST
 };
 
 static struct nf_hook_ops nfop_through={
-	.hook = hook_rules,
+	.hook = hook_rules_with_output,
 	.pf = PF_INET,
 	.hooknum = NF_INET_FORWARD,
 	.priority = NF_IP_PRI_FIRST
@@ -581,14 +595,7 @@ static struct nf_hook_ops natop_in={
 };
 
 static struct nf_hook_ops natop_out={
-	.hook = hook_nat_out_with_messages_output,
-	.pf = PF_INET,
-	.hooknum = NF_INET_POST_ROUTING,
-	.priority = NF_IP_PRI_NAT_SRC
-};	
-#else 
-static struct nf_hook_ops natop_out={
-	.hook = messages_output_without_nat,
+	.hook = hook_nat_out,
 	.pf = PF_INET,
 	.hooknum = NF_INET_POST_ROUTING,
 	.priority = NF_IP_PRI_NAT_SRC
@@ -608,8 +615,6 @@ static int mod_init(void){
 	nf_register_net_hook(&init_net,&natop_out);
 	nat_connect_init();
 	nat_pool_init();
-#else 
-	nf_register_net_hook(&init_net,&natop_out);
 #endif		
 	printk("my firewall module init netlink.\n");
 	netlink_init();
@@ -634,8 +639,6 @@ static void mod_exit(void){
 	printk("my firewall module clear nat_list.\n");
 	nat_connect_exit();
 	nat_rule_exit();
-#else
-	nf_register_net_hook(&init_net,&natop_out);
 #endif
 	
 	printk("my firewall module remove netlink.\n");

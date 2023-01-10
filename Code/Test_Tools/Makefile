@@ -1,4 +1,4 @@
-TARGET := icmp tcp
+TARGET := icmp tcp 
 SRCS = icmp.c tcp.c
 CC := gcc
 Getlog = Getlog.sh

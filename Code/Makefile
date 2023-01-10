@@ -1,8 +1,8 @@
 help:
 	@echo "getclient:  get the client"
 	@echo "gettools: get test tools"
-	@echo "install:  install the module into linux kernel"
-	@echo "uninstall:  uninstall the module from linux kernel"
+	@echo "install(sudo ):  install the module into linux kernel"
+	@echo "uninstall(sudo ):  uninstall the module from linux kernel"
 	@echo "clean:  clean all the items except code"
 
 getclient: 
